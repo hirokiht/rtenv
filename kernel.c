@@ -431,41 +431,28 @@ void serial_readwrite_task()
 	}
 }
 
-void serial_test_task()
+void find_events()
 {
-	char put_ch[2]={'0','\0'};
-	char hint[] =  USER_NAME "@" USER_NAME "-STM32:~$ ";
-	int hint_length = sizeof(hint);
-	char *p = NULL;
-	int cmd_count = 0;
+	char buf[CMDBUF_SIZE];
+	char *p = cmd[cur_his];
+	char *q;
+	int i;
 
-	fdout = mq_open("/tmp/mqueue/out", 0);
-	fdin = open("/dev/tty0/in", 0);
-
-	for (;; cur_his = (cur_his + 1) % HISTORY_COUNT) {
-		p = cmd[cur_his];
-		write(fdout, hint, hint_length);
-
-		while (1) {
-			read(fdin, put_ch, 1);
-
-			if (put_ch[0] == '\r' || put_ch[0] == '\n') {
-				*p = '\0';
-				write(fdout, next_line, 3);
-				break;
-			}
-			else if (put_ch[0] == 127 || put_ch[0] == '\b') {
-				if (p > cmd[cur_his]) {
-					p--;
-					write(fdout, "\b \b", 4);
+	for (; *p; p++) {
+		if (*p == '!') {
+			q = p;
+			while (*q && !isspace(*q))
+				q++;
+			for (i = cur_his + HISTORY_COUNT - 1; i > cur_his; i--) {
+				if (!strncmp(cmd[i % HISTORY_COUNT], p + 1, q - p - 1)) {
+					strcpy(buf, q);
+					strcpy(p, cmd[i % HISTORY_COUNT]);
+					p += strlen(p);
+					strcpy(p--, buf);
+					break;
 				}
 			}
-			else if (p - cmd[cur_his] < CMDBUF_SIZE - 1) {
-				*p++ = put_ch[0];
-				write(fdout, put_ch, 2);
-			}
 		}
-		check_keyword();	
 	}
 }
 
@@ -541,28 +528,41 @@ void check_keyword()
 	}
 }
 
-void find_events()
+void serial_test_task()
 {
-	char buf[CMDBUF_SIZE];
-	char *p = cmd[cur_his];
-	char *q;
-	int i;
+	char put_ch[2]={'0','\0'};
+	char hint[] =  USER_NAME "@" USER_NAME "-STM32:~$ ";
+	int hint_length = sizeof(hint);
+	char *p = NULL;
+	int cmd_count = 0;
 
-	for (; *p; p++) {
-		if (*p == '!') {
-			q = p;
-			while (*q && !isspace(*q))
-				q++;
-			for (i = cur_his + HISTORY_COUNT - 1; i > cur_his; i--) {
-				if (!strncmp(cmd[i % HISTORY_COUNT], p + 1, q - p - 1)) {
-					strcpy(buf, q);
-					strcpy(p, cmd[i % HISTORY_COUNT]);
-					p += strlen(p);
-					strcpy(p--, buf);
-					break;
+	fdout = mq_open("/tmp/mqueue/out", 0);
+	fdin = open("/dev/tty0/in", 0);
+
+	for (;; cur_his = (cur_his + 1) % HISTORY_COUNT) {
+		p = cmd[cur_his];
+		write(fdout, hint, hint_length);
+
+		while (1) {
+			read(fdin, put_ch, 1);
+
+			if (put_ch[0] == '\r' || put_ch[0] == '\n') {
+				*p = '\0';
+				write(fdout, next_line, 3);
+				break;
+			}
+			else if (put_ch[0] == 127 || put_ch[0] == '\b') {
+				if (p > cmd[cur_his]) {
+					p--;
+					write(fdout, "\b \b", 4);
 				}
 			}
+			else if (p - cmd[cur_his] < CMDBUF_SIZE - 1) {
+				*p++ = put_ch[0];
+				write(fdout, put_ch, 2);
+			}
 		}
+		check_keyword();	
 	}
 }
 
@@ -645,6 +645,28 @@ void export_envvar(int argc, char *argv[])
 	}
 }
 
+//this function helps to show int
+
+void itoa(int n, char *dst, int base)
+{
+	char buf[33] = {0};
+	char *p = &buf[32];
+
+	if (n == 0)
+		*--p = '0';
+	else {
+		char *q;
+		unsigned int num = (base == 10 && num < 0) ? -n : n;
+
+		for (; num; num/=base)
+			*--p = "0123456789ABCDEF" [num % base];
+		if (base == 10 && n < 0)
+			*--p = '-';
+	}
+
+	strcpy(dst, p);
+}
+
 //ps
 void show_task_info(int argc, char* argv[])
 {
@@ -676,28 +698,6 @@ void show_task_info(int argc, char* argv[])
 
 		write(fdout, &next_line , 3);
 	}
-}
-
-//this function helps to show int
-
-void itoa(int n, char *dst, int base)
-{
-	char buf[33] = {0};
-	char *p = &buf[32];
-
-	if (n == 0)
-		*--p = '0';
-	else {
-		char *q;
-		unsigned int num = (base == 10 && num < 0) ? -n : n;
-
-		for (; num; num/=base)
-			*--p = "0123456789ABCDEF" [num % base];
-		if (base == 10 && n < 0)
-			*--p = '-';
-	}
-
-	strcpy(dst, p);
 }
 
 //help
