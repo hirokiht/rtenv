@@ -884,10 +884,10 @@ task_pop (struct task_control_block **list)
 	return NULL;
 }
 
-void _read(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct pipe_ringbuffer *pipes);
-void _write(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct pipe_ringbuffer *pipes);
+void _read(struct task_control_block *task, struct task_control_block *tasks, struct pipe_ringbuffer *pipes);
+void _write(struct task_control_block *task, struct task_control_block *tasks, struct pipe_ringbuffer *pipes);
 
-void _read(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct pipe_ringbuffer *pipes)
+void _read(struct task_control_block *task, struct task_control_block *tasks, struct pipe_ringbuffer *pipes)
 {
 	task->status = TASK_READY;
 	/* If the fd is invalid */
@@ -905,12 +905,12 @@ void _read(struct task_control_block *task, struct task_control_block *tasks, si
 			/* Unblock any waiting writes */
 			for (i = 0; i < task_count; i++)
 				if (tasks[i].status == TASK_WAIT_WRITE)
-					_write(&tasks[i], tasks, task_count, pipes);
+					_write(&tasks[i], tasks, pipes);
 		}
 	}
 }
 
-void _write(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct pipe_ringbuffer *pipes)
+void _write(struct task_control_block *task, struct task_control_block *tasks, struct pipe_ringbuffer *pipes)
 {
 	task->status = TASK_READY;
 	/* If the fd is invalid */
@@ -928,7 +928,7 @@ void _write(struct task_control_block *task, struct task_control_block *tasks, s
 			/* Unblock any waiting reads */
 			for (i = 0; i < task_count; i++)
 				if (tasks[i].status == TASK_WAIT_READ)
-					_read(&tasks[i], tasks, task_count, pipes);
+					_read(&tasks[i], tasks, pipes);
 		}
 	}
 }
@@ -1165,10 +1165,10 @@ int main()
 			tasks[current_task].stack->r0 = current_task;
 			break;
 		case 0x3: /* write */
-			_write(&tasks[current_task], tasks, task_count, pipes);
+			_write(&tasks[current_task], tasks, pipes);
 			break;
 		case 0x4: /* read */
-			_read(&tasks[current_task], tasks, task_count, pipes);
+			_read(&tasks[current_task], tasks, pipes);
 			break;
 		case 0x5: /* interrupt_wait */
 			/* Enable interrupt */
