@@ -572,8 +572,8 @@ void serial_test_task()
 									p--;
 									write(fdout, "\b \b", 4);
 								}
+								char * c = cmd[put_ch[0] == 'A'? --i : ++i];
 								if(put_ch[0] == 'A' || i != cur_his){
-									char * c = cmd[put_ch[0] == 'A'? --i : ++i];
 									while(*c++ != '\0');	//simple "strlen"
 									write(fdout, cmd[i], c - cmd[i]);
 									memcpy(cmd[cur_his],cmd[i],c - cmd[i]);
