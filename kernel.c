@@ -98,6 +98,9 @@ char cmd[HISTORY_COUNT][CMDBUF_SIZE];
 int cur_his=0;
 int fdout;
 int fdin;
+void (*userProgram)(int, char**) = NULL;
+int argC = 0;
+char ** argV = NULL;
 
 /* Command handlers. */
 void export_envvar(int argc, char *argv[]);
@@ -106,6 +109,7 @@ void show_cmd_info(int argc, char *argv[]);
 void show_task_info(int argc, char *argv[]);
 void show_man_page(int argc, char *argv[]);
 void show_history(int argc, char *argv[]);
+void exec_program(int argc, char *argv[]);
 
 /* Enumeration for command types. */
 enum {
@@ -115,6 +119,7 @@ enum {
 	CMD_HISTORY,
 	CMD_MAN,
 	CMD_PS,
+	CMD_EXEC,
 	CMD_COUNT
 } CMD_TYPE;
 /* Structure for command handler. */
@@ -129,7 +134,8 @@ const hcmd_entry cmd_data[CMD_COUNT] = {
 	[CMD_HELP] = {.cmd = "help", .func = show_cmd_info, .description = "List all commands you can use."},
 	[CMD_HISTORY] = {.cmd = "history", .func = show_history, .description = "Show latest commands entered."}, 
 	[CMD_MAN] = {.cmd = "man", .func = show_man_page, .description = "Manual pager."},
-	[CMD_PS] = {.cmd = "ps", .func = show_task_info, .description = "List all the processes."}
+	[CMD_PS] = {.cmd = "ps", .func = show_task_info, .description = "List all the processes."},
+	[CMD_EXEC] = {.cmd = "exec", .func = exec_program, .description = "Execute user program."}
 };
 
 /* Structure for environment variables. */
@@ -193,7 +199,8 @@ void pathserver()
 	unsigned int replyfd = 0;
 	char path[PATH_MAX];
 
-	memcpy(paths[npaths++], PATH_SERVER_NAME, sizeof(PATH_SERVER_NAME));
+	memcpy(paths[npaths++], 
+	PATH_SERVER_NAME, sizeof(PATH_SERVER_NAME));
 
 	while (1) {
 		read(PATHSERVER_FD, &replyfd, 4);
@@ -312,14 +319,11 @@ void serialin(USART_TypeDef* uart, unsigned int intr)
 	}
 }
 
-void greeting()
+void greeting(int argc, char * argv[])
 {
 	int fdout = open("/dev/tty0/out", 0);
-	char *string = "Hello, World!\n";
-	while (*string) {
-		write(fdout, string, 1);
-		string++;
-	}
+	char *string = "Hello, World!\n\r";
+	write(fdout, string, 15);
 }
 
 void echo()
@@ -535,14 +539,14 @@ void serial_test_task()
 	int hint_length = sizeof(hint);
 	char *p = NULL;
 	int cmd_count = 0;
-
+	size_t i = cur_his;
+	
 	fdout = mq_open("/tmp/mqueue/out", 0);
 	fdin = open("/dev/tty0/in", 0);
 
-	for (;; cur_his = (cur_his + 1) % HISTORY_COUNT) {
+	for (;; i = cur_his = (cur_his + 1) % HISTORY_COUNT) {
 		p = cmd[cur_his];
 		write(fdout, hint, hint_length);
-
 		while (1) {
 			read(fdin, put_ch, 1);
 
@@ -558,11 +562,56 @@ void serial_test_task()
 				}
 			}
 			else if (p - cmd[cur_his] < CMDBUF_SIZE - 1) {
-				*p++ = put_ch[0];
-				write(fdout, put_ch, 2);
+				if(put_ch[0] == '\033'){					//arrow key detection
+					read(fdin, put_ch, 1);
+					if(put_ch[0] == '['){
+						read(fdin, put_ch, 1);
+						if(put_ch[0] == 'A' || put_ch[0] == 'B'){		//up/down arrow key
+							if(put_ch[0] == 'A'? i : i < cur_his){				//browse history
+								while(p > cmd[cur_his]){	//delete current text
+									p--;
+									write(fdout, "\b \b", 4);
+								}
+								if(put_ch[0] == 'A' || i != cur_his){
+									char * c = cmd[put_ch[0] == 'A'? --i : ++i];
+									while(*c++ != '\0');	//simple "strlen"
+									write(fdout, cmd[i], c - cmd[i]);
+									memcpy(cmd[cur_his],cmd[i],c - cmd[i]);
+									p = cmd[cur_his]+(c - cmd[i])-1;
+								}else p = cmd[cur_his];
+							}
+						}else if(put_ch[0] == 'C'){	//right arrow key
+						}else if(put_ch[0] == 'D'){	//left arrow key
+						}else{
+							*p++ = '[';
+							*p++ = put_ch[0];
+							*p = '\0';
+							write(fdout, p-2, 3);
+						}
+					}else{
+						*p++ = put_ch[0];
+						write(fdout, put_ch, 2);
+					}
+				}else{
+					*p++ = put_ch[0];
+					write(fdout, put_ch, 2);
+				}
 			}
 		}
 		check_keyword();	
+		while(userProgram)
+			sleep(10);
+	}
+}
+
+void loader(){
+	for(;;){
+		if(userProgram != NULL){
+			userProgram(argC,argV);
+			argC = 0;
+			userProgram = NULL;
+			argV = NULL;
+		}
 	}
 }
 
@@ -774,6 +823,16 @@ void show_history(int argc, char *argv[])
 	}
 }
 
+void exec_program(int argc, char *argv[]){
+	if(argc != 2)
+		return;
+	if(!strcmp(argv[1],"greeting")){
+		argC = 0;
+		argV = NULL;
+		userProgram = greeting;
+	}else write(fdout, "Program not found!\n\r\0",21);
+}
+
 int write_blank(int blank_num)
 {
 	char blank[] = " ";
@@ -794,7 +853,7 @@ void first()
 	if (!fork()) setpriority(0, 0), serialin(USART2, USART2_IRQn);
 	if (!fork()) rs232_xmit_msg_task();
 	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), serial_test_task();
-
+	if (!fork()) setpriority(0,PRIORITY_DEFAULT), loader();
 	setpriority(0, PRIORITY_LIMIT);
 
 	while(1);
@@ -933,9 +992,7 @@ void _write(struct task_control_block *task, struct task_control_block *tasks, s
 	}
 }
 
-int
-fifo_readable (struct pipe_ringbuffer *pipe,
-			   struct task_control_block *task)
+int fifo_readable (struct pipe_ringbuffer *pipe, struct task_control_block *task)
 {
 	/* Trying to read too much */
 	if (task->stack->r2 > PIPE_BUF) {
@@ -950,9 +1007,7 @@ fifo_readable (struct pipe_ringbuffer *pipe,
 	return 1;
 }
 
-int
-mq_readable (struct pipe_ringbuffer *pipe,
-			 struct task_control_block *task)
+int mq_readable (struct pipe_ringbuffer *pipe, struct task_control_block *task)
 {
 	size_t msg_len;
 
@@ -973,9 +1028,7 @@ mq_readable (struct pipe_ringbuffer *pipe,
 	return 1;
 }
 
-int
-fifo_read (struct pipe_ringbuffer *pipe,
-		   struct task_control_block *task)
+int fifo_read (struct pipe_ringbuffer *pipe, struct task_control_block *task)
 {
 	size_t i;
 	char *buf = (char*)task->stack->r1;
@@ -986,9 +1039,7 @@ fifo_read (struct pipe_ringbuffer *pipe,
 	return task->stack->r2;
 }
 
-int
-mq_read (struct pipe_ringbuffer *pipe,
-		 struct task_control_block *task)
+int mq_read (struct pipe_ringbuffer *pipe, struct task_control_block *task)
 {
 	size_t msg_len;
 	size_t i;
@@ -1004,9 +1055,7 @@ mq_read (struct pipe_ringbuffer *pipe,
 	return msg_len;
 }
 
-int
-fifo_writable (struct pipe_ringbuffer *pipe,
-			   struct task_control_block *task)
+int fifo_writable (struct pipe_ringbuffer *pipe, struct task_control_block *task)
 {
 	/* If the write would be non-atomic */
 	if (task->stack->r2 > PIPE_BUF) {
@@ -1022,9 +1071,7 @@ fifo_writable (struct pipe_ringbuffer *pipe,
 	return 1;
 }
 
-int
-mq_writable (struct pipe_ringbuffer *pipe,
-			 struct task_control_block *task)
+int mq_writable (struct pipe_ringbuffer *pipe, struct task_control_block *task)
 {
 	size_t total_len = sizeof(size_t) + task->stack->r2;
 
@@ -1042,9 +1089,7 @@ mq_writable (struct pipe_ringbuffer *pipe,
 	return 1;
 }
 
-int
-fifo_write (struct pipe_ringbuffer *pipe,
-			struct task_control_block *task)
+int fifo_write (struct pipe_ringbuffer *pipe, struct task_control_block *task)
 {
 	size_t i;
 	const char *buf = (const char*)task->stack->r1;
@@ -1054,9 +1099,7 @@ fifo_write (struct pipe_ringbuffer *pipe,
 	return task->stack->r2;
 }
 
-int
-mq_write (struct pipe_ringbuffer *pipe,
-		  struct task_control_block *task)
+int mq_write (struct pipe_ringbuffer *pipe, struct task_control_block *task)
 {
 	size_t i;
 	const char *buf = (const char*)task->stack->r1;
@@ -1069,8 +1112,7 @@ mq_write (struct pipe_ringbuffer *pipe,
 	return task->stack->r2;
 }
 
-int
-_mknod(struct pipe_ringbuffer *pipe, int dev)
+int _mknod(struct pipe_ringbuffer *pipe, int dev)
 {
 	switch(dev) {
 	case S_IFIFO:
