@@ -359,11 +359,8 @@ void rs232_xmit_msg_task()
 		read(fdin, str, 100);
 
 		/* Write each character of the message to the RS232 port. */
-		curr_char = 0;
-		while (str[curr_char] != '\0') {
+		for(curr_char = 0 ; str[curr_char] != '\0' ; curr_char++)
 			write(fdout, &str[curr_char], 1);
-			curr_char++;
-		}
 	}
 }
 
@@ -372,13 +369,9 @@ void queue_str_task(const char *str, int delay)
 	int fdout = mq_open("/tmp/mqueue/out", 0);
 	int msg_len = strlen(str) + 1;
 
-	while (1) {
-		/* Post the message.  Keep on trying until it is successful. */
-		write(fdout, str, msg_len);
+	for(;;sleep(delay))	
+		write(fdout, str, msg_len);/* Post the message.  Keep on trying until it is successful. */
 
-		/* Wait. */
-		sleep(delay);
-	}
 }
 
 void queue_str_task1()
@@ -504,14 +497,8 @@ void check_keyword()
 	if (!argv[0])
 		return;
 
-	while (1) {
+	for( ; argv[argc-1] && argc < MAX_ARGC ; argc++)
 		argv[argc] = cmdtok(NULL);
-		if (!argv[argc])
-			break;
-		argc++;
-		if (argc >= MAX_ARGC)
-			break;
-	}
 
 	for(i = 0; i < argc; i++) {
 		int l = fill_arg(p, argv[i]);
@@ -833,10 +820,10 @@ void exec_program(int argc, char *argv[]){
 	}else write(fdout, "Program not found!\n\r\0",21);
 }
 
-int write_blank(int blank_num)
+int write_blank(unsigned int blank_num)
 {
 	char blank[] = " ";
-	int blank_count = 0;
+	unsigned int blank_count = 0;
 
 	while (blank_count <= blank_num) {
 		write(fdout, blank, sizeof(blank));
@@ -856,7 +843,7 @@ void first()
 	if (!fork()) setpriority(0,PRIORITY_DEFAULT), loader();
 	setpriority(0, PRIORITY_LIMIT);
 
-	while(1);
+	for(;;sleep(10000));
 }
 
 struct pipe_ringbuffer {
