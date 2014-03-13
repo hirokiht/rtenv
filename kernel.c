@@ -559,12 +559,11 @@ void serial_test_task()
 									p--;
 									write(fdout, "\b \b", 4);
 								}
-								char * c = cmd[put_ch[0] == 'A'? --i : ++i];
+								i += put_ch[0] == 'A'? -1 : 1;
 								if(put_ch[0] == 'A' || i != cur_his){
-									while(*c++ != '\0');	//simple "strlen"
-									write(fdout, cmd[i], c - cmd[i]);
-									memcpy(cmd[cur_his],cmd[i],c - cmd[i]);
-									p = cmd[cur_his]+(c - cmd[i])-1;
+									write(fdout, cmd[i], strlen(cmd[i])+1);
+									memcpy(cmd[cur_his],cmd[i], strlen(cmd[i])+1);
+									p = cmd[cur_his]+strlen(cmd[i]);
 								}else p = cmd[cur_his];
 							}
 						}else if(put_ch[0] == 'C'){	//right arrow key
