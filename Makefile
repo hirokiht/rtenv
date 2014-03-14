@@ -98,35 +98,25 @@ check: unit_test.c unit_test.h
 		-serial stdio \
 		-kernel main.bin -monitor null >/dev/null &
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-strlen.in
-	@mv -f gdb.txt test_result/test-strlen.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-strlen.txt' -x unit_test/test-strlen.in
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-strcpy.in
-	@mv -f gdb.txt test_result/test-strcpy.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-strcpy.txt' -x unit_test/test-strcpy.in
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-strcmp.in
-	@mv -f gdb.txt test_result/test-strcmp.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-strcmp.txt' -x unit_test/test-strcmp.in
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-strncmp.in
-	@mv -f gdb.txt test_result/test-strncmp.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-strncmp.txt' -x unit_test/test-strncmp.in
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-cmdtok.in
-	@mv -f gdb.txt test_result/test-cmdtok.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-cmdtok.txt' -x unit_test/test-cmdtok.in
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-itoa.in
-	@mv -f gdb.txt test_result/test-itoa.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-itoa.txt' -x unit_test/test-itoa.in
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-find_events.in
-	@mv -f gdb.txt test_result/test-find_events.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-find_events.txt' -x unit_test/test-find_events.in
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-find_envvar.in
-	@mv -f gdb.txt test_result/test-find_envvar.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-find_envvar.txt' -x unit_test/test-find_envvar.in
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-fill_arg.in
-	@mv -f gdb.txt test_result/test-fill_arg.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-fill_arg.txt' -x unit_test/test-fill_arg.in
 	@echo
-	$(CROSS_COMPILE)gdb -batch -x unit_test/test-export_envvar.in
-	@mv -f gdb.txt test_result/test-export_envvar.txt
+	$(CROSS_COMPILE)gdb -batch -ex 'set logging file test_result/test-export_envvar.txt' -x unit_test/test-export_envvar.in
 	@echo
 	@pkill -9 $(notdir $(QEMU_STM32))
 
