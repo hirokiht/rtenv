@@ -509,7 +509,8 @@ void check_keyword()
 		return;
 
 	for( ; argv[argc-1] && argc < MAX_ARGC ; argc++)
-		argv[argc] = cmdtok(NULL);
+		if(!(argv[argc] = cmdtok(NULL)))
+			break;
 
 	for(i = 0; i < argc; i++) {
 		int l = fill_arg(p, argv[i]);
@@ -536,7 +537,7 @@ void serial_test_task()
 	char hint[] =  USER_NAME "@" USER_NAME "-STM32:~$ ";
 	int hint_length = sizeof(hint);
 	char *p = NULL;
-	int cmd_count = 0;
+//	int cmd_count = 0;
 	size_t i = cur_his;
 	
 	fdout = mq_open("/tmp/mqueue/out", 0);
